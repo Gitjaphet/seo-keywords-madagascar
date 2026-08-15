@@ -4,7 +4,13 @@ from __future__ import annotations
 
 import csv
 
-from seo_keywords.analysis.curation import auto_filter, export_for_manual_tagging, load_tagged_csv
+from seo_keywords.analysis.curation import (
+    auto_filter,
+    export_for_manual_tagging,
+    export_foreign_language_csv,
+    load_tagged_csv,
+    separate_cross_language,
+)
 from seo_keywords.storage.models import KeywordRecord
 
 
@@ -115,3 +121,88 @@ def test_load_tagged_csv_reads_only_filled_rows(tmp_path):
         "que faire a nosy be blog": "informationnel",
     }
     assert "pas encore tagué" not in tagged
+
+
+def test_auto_filter_flags_new_travel_brands():
+    """Marques ajoutées après revue du lot en (Jet2, British Airways,
+    Virgin, Mercury Holidays, Kensington Tours, Intrepid)."""
+    records = [
+        _record("madagascar holidays jet2"),
+        _record("madagascar holidays british airways"),
+        _record("madagascar holidays virgin all inclusive"),
+        _record("madagascar mercury holidays"),
+        _record("madagascar kensington tours"),
+        _record("madagascar tour intrepid"),
+    ]
+
+    result = auto_filter(records)
+
+    assert len(result.competitor) == 6
+    assert len(result.keeper) == 0
+
+
+def test_auto_filter_flags_public_holidays_as_off_topic():
+    """'national/official/major holidays' = calendrier RH, pas une recherche
+    de voyage -> doit être exclu, pas confondu avec 'holidays' au sens vacances."""
+    records = [
+        _record("madagascar national holidays"),
+        _record("madagascar national holidays 2026"),
+        _record("madagascar official holidays"),
+        _record("madagascar major holidays"),
+        _record("madagascar holidays in december"),  # doit rester (vacances, pas jours fériés)
+    ]
+
+    result = auto_filter(records)
+
+    off_topic_keywords = {r.keyword for r in result.off_topic}
+    assert "madagascar national holidays" in off_topic_keywords
+    assert "madagascar national holidays 2026" in off_topic_keywords
+    assert "madagascar official holidays" in off_topic_keywords
+    assert "madagascar major holidays" in off_topic_keywords
+    assert "madagascar holidays in december" in {r.keyword for r in result.keeper}
+
+
+def test_separate_cross_language_flags_real_french_in_en_batch():
+    """Cas réel: 'excursion en mer à nosy be' collecté sous lang=en mais
+    en réalité français -> doit être séparé, pas laissé dans le lot en."""
+    records = [
+        _record("excursion en mer à nosy be", seed="excursion nosy be", lang="en"),
+        _record("excursion depuis nosy be", seed="excursion nosy be", lang="en"),
+        _record("is madagascar safe for tourists", seed="madagascar trip", lang="en"),
+    ]
+
+    same_lang, foreign = separate_cross_language(records, declared_lang="en")
+
+    assert len(same_lang) == 1
+    assert same_lang[0].keyword == "is madagascar safe for tourists"
+
+    assert len(foreign) == 2
+    detected_langs = {lang for _, lang in foreign}
+    assert detected_langs == {"fr"}
+
+
+def test_separate_cross_language_never_drops_records():
+    records = [
+        _record("excursion en mer à nosy be", lang="en"),
+        _record("madagascar backpacking trip", lang="en"),
+    ]
+
+    same_lang, foreign = separate_cross_language(records, declared_lang="en")
+
+    assert len(same_lang) + len(foreign) == len(records)
+
+
+def test_export_foreign_language_csv_creates_valid_csv(tmp_path):
+    records = [_record("excursion depuis nosy be", seed="excursion nosy be", lang="en")]
+    _, foreign = separate_cross_language(records, declared_lang="en")
+    output = tmp_path / "foreign.csv"
+
+    export_foreign_language_csv(foreign, str(output))
+
+    with open(output, encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    assert len(rows) == 1
+    assert rows[0]["detected_lang"] == "fr"
+    assert rows[0]["declared_lang"] == "en"
+    assert rows[0]["keyword"] == "excursion depuis nosy be"
