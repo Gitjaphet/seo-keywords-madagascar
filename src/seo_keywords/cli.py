@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import track
 
+from seo_keywords.analysis.curation import auto_filter, export_for_manual_tagging
 from seo_keywords.analysis.seasonality import export_monthly_csv, export_season_summary_csv
 from seo_keywords.collectors.autocomplete import AutocompleteCollector
 from seo_keywords.collectors.trends import TrendsCollector
@@ -105,6 +106,46 @@ def export(
     console.print(
         f"[bold green]✓ Exports créés :[/bold green]\n  - {monthly_path}\n  - {summary_path}"
     )
+
+
+@app.command()
+def curate(
+    lang: str = typer.Option("fr", help="Langue des mots-clés à curer"),
+):
+    """Étape intermédiaire : filtre le bruit (marques concurrentes, faux positifs)
+    et exporte un CSV à tagger manuellement (intention: transactionnel/informationnel/
+    navigationnel/exclure)."""
+    repo = KeywordRepository(settings.database_path)
+    records = repo.get_all_keywords(lang=lang)
+
+    if not records:
+        console.print(f"[bold red]Aucun mot-clé en base pour '{lang}'.[/bold red]")
+        raise typer.Exit(1)
+
+    result = auto_filter(records)
+
+    console.print(f"[bold cyan]Curation automatique[/bold cyan] ({len(records)} mots-clés)")
+    console.print(f"  ✓ à garder / tagger    : {len(result.keeper)}")
+    console.print(f"  ✗ marques concurrentes : {len(result.competitor)}")
+    console.print(f"  ✗ hors-sujet           : {len(result.off_topic)}")
+
+    if result.competitor:
+        console.print(
+            "\n[dim]Marques concurrentes détectées (intelligence concurrentielle) :[/dim]"
+        )
+        for r in result.competitor:
+            console.print(f"  [dim]- {r.keyword}[/dim]")
+
+    if result.off_topic:
+        console.print("\n[dim]Hors-sujet exclus :[/dim]")
+        for r in result.off_topic:
+            console.print(f"  [dim]- {r.keyword}[/dim]")
+
+    output_path = f"{settings.processed_output_dir}/to_tag_{lang}.csv"
+    export_for_manual_tagging(result.keeper, output_path)
+    console.print(f"\n[bold green]✓ Export pour tagging manuel : {output_path}[/bold green]")
+    console.print("[dim]Ouvre ce CSV et remplis la colonne 'intent' avec: "
+                  "transactionnel / informationnel / navigationnel / exclure[/dim]")
 
 
 @app.command()
