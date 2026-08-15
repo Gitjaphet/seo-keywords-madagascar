@@ -3,12 +3,19 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 
 import typer
 from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import track
 
+from seo_keywords.analysis.clustering import (
+    cluster_summary,
+    export_clustered_csv,
+    export_cross_language_report,
+    load_clustered_csv,
+)
 from seo_keywords.analysis.curation import auto_filter, export_for_manual_tagging
 from seo_keywords.analysis.seasonality import export_monthly_csv, export_season_summary_csv
 from seo_keywords.collectors.autocomplete import AutocompleteCollector
@@ -148,6 +155,55 @@ def curate(
                   "transactionnel / informationnel / navigationnel / exclure[/dim]")
 
 
+
+@app.command()
+def cluster(
+    lang: str = typer.Option("fr", help="Langue du CSV taggé à regrouper par thème"),
+):
+    """Étape 4 : regroupe les mots-clés taggés par thème (cluster) à partir
+    de leur seed, pour préparer le mapping vers les pages du site.
+
+    Sépare aussi les artefacts cross-langue (mots-clés collectés sous 'lang'
+    mais en réalité écrits dans une autre langue, repérés via la colonne
+    'notes') dans un fichier séparé, réutilisable lors du tagging de la
+    bonne langue."""
+    input_path = f"{settings.processed_output_dir}/to_tag_{lang}.csv"
+    output_path = f"{settings.processed_output_dir}/clustered_{lang}.csv"
+    cross_lang_path = f"{settings.processed_output_dir}/cross_language_from_{lang}.csv"
+
+    if not Path(input_path).exists():
+        console.print(
+            f"[bold red]Fichier introuvable : {input_path}. "
+            f"Lance d'abord `curate --lang {lang}` puis termine le tagging.[/bold red]"
+        )
+        raise typer.Exit(1)
+
+    matching, cross_lang = load_clustered_csv(input_path, target_lang=lang)
+    if not matching:
+        console.print(
+            f"[bold red]Aucune ligne taggée exploitable dans {input_path} "
+            f"(colonne 'intent' vide ou tout marqué 'exclure').[/bold red]"
+        )
+        raise typer.Exit(1)
+
+    export_clustered_csv(matching, output_path)
+    summary = cluster_summary(matching)
+
+    console.print(f"[bold cyan]Clustering[/bold cyan] ({len(matching)} mots-clés exploitables)")
+    for cluster_name, count in sorted(summary.items(), key=lambda x: -x[1]):
+        console.print(f"  {cluster_name:<25} {count}")
+
+    console.print(f"\n[bold green]✓ Export : {output_path}[/bold green]")
+
+    if cross_lang:
+        export_cross_language_report(cross_lang, cross_lang_path)
+        console.print(
+            f"\n[yellow]⚠ {len(cross_lang)} mots-clés collectés sous '{lang}' mais "
+            f"détectés dans une autre langue (via notes) — extraits et sauvegardés "
+            f"dans {cross_lang_path} pour réutilisation future.[/yellow]"
+        )
+
+        
 @app.command()
 def markets():
     """Liste les marchés cibles configurés."""
