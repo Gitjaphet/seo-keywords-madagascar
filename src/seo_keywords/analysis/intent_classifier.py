@@ -24,7 +24,7 @@ NAVIGATIONAL_PATTERNS: list[str] = [
     r"tripadvisor", r"trip advisor", r"booking\.com", r"\bbooking\b",
     r"getyourguide", r"get your guide", r"\bviator\b", r"lonely planet",
     r"\bexpedia\b", r"\bklook\b", r"\bcivitatis\b", r"\bkayak\b",
-    r"\bskyscanner\b", r"\bopodo\b",
+    r"\bskyscanner\b", r"\bopodo\b", r"holidaycheck",
 ]
 
 TRANSACTIONAL_PATTERNS: list[str] = [
@@ -51,12 +51,13 @@ INFORMATIONAL_PATTERNS: list[str] = [
     r"^how many\b", r"^how safe\b",
     # DE
     r"^wie\b", r"^warum\b", r"\berfahrung", r"\btipps\b", r"reisef[uü]hrer",
-    r"^wann\b",
+    r"^wann\b", r"\breddit\b", r"\bplanen\b", r"highlights?\b", r"\bbilder\b",
+    r"\baktuell\b", r"reise wert", r"urlaub wert", r"was beachten",
+    r"\bsprache\b",
     # IT
     r"^come\b", r"^perch[eé]\b", r"\brecensioni\b", r"\bconsigli\b",
-    r"\bitinerario\b", r"^quando\b",
+    r"\bitinerario\b", r"^quando\b", r"cosa portare", r"\bmappa\b", r"\bmap\b",
 ]
-
 
 # Niveau 4 (Google search-intent model): "commercial investigation" — la
 # personne compare des TYPES de voyage sans avoir encore d'intention de

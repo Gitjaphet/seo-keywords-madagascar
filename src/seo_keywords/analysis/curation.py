@@ -27,7 +27,7 @@ COMPETITOR_BRANDS: list[str] = [
     "tui", "leclerc", "fram", "kuoni", "nouvelles frontières", "nouvelles frontieres",
     "club med", "carrefour", "bourdon", "air france",
     "jet2", "british airways", "virgin", "mercury holidays", "kensington tours",
-    "intrepid",
+    "intrepid", "gebeco", "marco polo", "turisanda", "holidaycheck",
 ]
 
 OFF_TOPIC_PATTERNS: list[str] = [
