@@ -141,6 +141,29 @@ def test_auto_filter_flags_new_travel_brands():
     assert len(result.keeper) == 0
 
 
+def test_auto_filter_excludes_vanilla_perfume_but_keeps_vanilla_islands():
+    records = [
+        KeywordRecord(
+            keyword="madagascar vanilla travel size", lang="en",
+            source="autocomplete", seed="madagascar vanilla",
+        ),
+        KeywordRecord(
+            keyword="madagascar vanilla travel spray", lang="en",
+            source="autocomplete", seed="madagascar vanilla",
+        ),
+        KeywordRecord(
+            keyword="madagascar vanilla travel", lang="en",
+            source="autocomplete", seed="madagascar vanilla",
+        ),
+    ]
+    result = auto_filter(records)
+    off_topic_keywords = {r.keyword for r in result.off_topic}
+    keeper_keywords = {r.keyword for r in result.keeper}
+
+    assert "madagascar vanilla travel size" in off_topic_keywords
+    assert "madagascar vanilla travel spray" in off_topic_keywords
+    assert "madagascar vanilla travel" in keeper_keywords
+
 def test_auto_filter_flags_public_holidays_as_off_topic():
     """'national/official/major holidays' = calendrier RH, pas une recherche
     de voyage -> doit être exclu, pas confondu avec 'holidays' au sens vacances."""

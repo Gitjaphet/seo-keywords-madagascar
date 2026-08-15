@@ -50,6 +50,24 @@ def test_classify_intent_informational_fr():
     assert classify_intent("que faire a nosy be blog")[0] == "informationnel"
     assert classify_intent("voyage madagascar avis")[0] == "informationnel"
 
+def test_classify_intent_travel_agency_is_commercial():
+    # classify_intent() ne gère pas le commercial (tier séparé, confiance
+    # plus faible) — il doit renvoyer None, et c'est classify_commercial_fallback
+    # qui prend le relais.
+    assert classify_intent("best travel agency in madagascar") is None
+    result = classify_commercial_fallback("best travel agency in madagascar")
+    assert result is not None
+    assert result[0] == "commercial"
+    assert classify_commercial_fallback("madagascar travel agents")[0] == "commercial"
+
+
+def test_classify_intent_catches_advisory_and_things_to_do():
+    """Régression: diagnostic needs_review_en a montré 128/128 cas sans
+    aucun pattern matché, dont un cluster net 'travel advisory/gov/visa'
+    et 'things to do' non couvert par la variante 'what to do'."""
+    assert classify_intent("things to do in madagascar")[0] == "informationnel"
+    assert classify_intent("madagascar travel state gov")[0] == "informationnel"
+    assert classify_intent("madagascar visa policy")[0] == "informationnel"
 
 def test_classify_intent_informational_en():
     assert classify_intent("how to plan madagascar trip")[0] == "informationnel"

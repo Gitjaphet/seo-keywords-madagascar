@@ -40,6 +40,7 @@ OFF_TOPIC_PATTERNS: list[str] = [
     r"national holidays?\b", r"official holidays?\b", r"major holidays?\b",
     # calendrier de jours fériés (RH/expat), pas une recherche de voyage
     r"amazon prime", r"grand tour bentley",  # émission TV "The Grand Tour"
+    r"vanilla travel (size|spray)",
 ]
 
 @dataclass(frozen=True, slots=True)
