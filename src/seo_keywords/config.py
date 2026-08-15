@@ -57,6 +57,17 @@ SEED_KEYWORDS: dict[str, list[str]] = {
         "reiseveranstalter madagaskar",
         "madagaskar urlaub",
     ],
+    "it": [
+        "escursione nosy be",
+        "tour madagascar",
+        "tour operator madagascar",
+        "agenzia di viaggi madagascar",
+        "cosa fare a nosy be",
+        "viaggio madagascar",
+        "vacanza madagascar",
+        "safari madagascar",
+        "crociera nosy be",
+    ],
 }
 
 # Marchés (géo Google Trends) prioritaires à comparer.
