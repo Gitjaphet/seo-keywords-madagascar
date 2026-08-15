@@ -46,6 +46,29 @@ def test_classify_intent_transactional_it():
     assert classify_intent("tour madagascar economico")[0] == "transactionnel"
 
 
+def test_classify_intent_plural_trip_and_excursion_bug():
+    """Régression: COMMERCIAL_PATTERNS avait 'trip' et 'excursion' au
+    singulier seulement — 'trips'/'excursions' au pluriel ne matchaient
+    jamais malgré \\b, car le 's' colle au mot. Trouvé via needs_review_en
+    ('nosy be day trips', 'shore excursions nosy be')."""
+    assert classify_commercial_fallback("nosy be day trips")[0] == "commercial"
+    assert classify_commercial_fallback("shore excursions nosy be")[0] == "commercial"
+
+
+def test_classify_intent_official_safety_and_seasonal_cluster():
+    """Régression: cluster 'sécurité officielle' (alert/ban/cdc/danger/gov/
+    guidance/health) et cluster saisonnier (mois + travel) trouvés dans
+    needs_review_en, tous sans aucun pattern matché."""
+    assert classify_intent("madagascar travel alert")[0] == "informationnel"
+    assert classify_intent("madagascar travel cdc")[0] == "informationnel"
+    assert classify_intent("madagascar travel january")[0] == "informationnel"
+    assert classify_intent("madagascar travel in december")[0] == "informationnel"
+
+
+def test_classify_intent_wiki_travel_is_navigational():
+    assert classify_intent("madagascar wiki travel")[0] == "navigationnel"
+
+    
 def test_classify_intent_informational_fr():
     assert classify_intent("que faire a nosy be blog")[0] == "informationnel"
     assert classify_intent("voyage madagascar avis")[0] == "informationnel"

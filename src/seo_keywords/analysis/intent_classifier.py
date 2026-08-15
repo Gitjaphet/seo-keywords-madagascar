@@ -25,6 +25,7 @@ NAVIGATIONAL_PATTERNS: list[str] = [
     r"getyourguide", r"get your guide", r"\bviator\b", r"lonely planet",
     r"\bexpedia\b", r"\bklook\b", r"\bcivitatis\b", r"\bkayak\b",
     r"\bskyscanner\b", r"\bopodo\b", r"holidaycheck",
+    r"wikitravel", r"wiki travel", r"wikivoyage",
 ]
 
 TRANSACTIONAL_PATTERNS: list[str] = [
@@ -33,7 +34,8 @@ TRANSACTIONAL_PATTERNS: list[str] = [
     r"\bdevis\b", r"combien co[uû]te",
     # EN
     r"\bprice\b", r"\bcost\b", r"\bcheap\b", r"\bbook\b", r"\bbooking\b",
-    r"how much", r"\bpackage",
+    r"how much", r"\bpackage", r"\bbudget\b", r"\bdeals?\b",
+    r"\ball inclusive\b", r"\btravel now\b",
     # DE
     r"\bpreis\b", r"g[uü]nstig", r"\bkosten\b", r"\bbuchen\b", r"\bbuchung",
     # IT
@@ -49,9 +51,25 @@ INFORMATIONAL_PATTERNS: list[str] = [
     r"\bguide\b", r"\bitinerary\b", r"\bwhen\b", r"\bbest time\b",
     r"\bis\b", r"\bare\b", r"\bdo i\b", r"\bdoes\b", r"\bcan\b",
     r"\bhow many\b", r"\bhow safe\b",
-    r"\bthings to do\b",  # variante de "what to do" non couverte
+    r"\bthings to (do|see)\b",
     r"\btravel advisory\b", r"\btravel warning\b", r"\btravel advice\b",
     r"\bstate gov\b", r"\bvisa polic", r"\bvisa requirement",
+    r"\btravel alert\b", r"\btravel ban\b", r"\bcdc\b", r"\bdanger\b",
+    r"\bguidance\b", r"\bhealth\b", r"\bhealthy\b", r"\bexpensive\b",
+    r"\bexperience\b", r"\bbrochure\b", r"\bindependent\b", r"\bgay\b",
+    r"\blgbt\b", r"\bdestinations?\b",
+    r"\btravel (in )?(january|february|march|april|may|june|july"
+    r"|august|september|october|november|december)\b",
+    r"\b(january|february|march|april|may|june|july|august"
+    r"|september|october|november|december) travel\b",
+    r"\binformation\b", r"\binsurance\b", r"\bkids?\b", r"\blevel\b",
+    r"\bmalaria\b", r"\btravel mate\b", r"\bmedicine\b", r"\bnews\b",
+    r"\bplaces\b", r"\bplan\b", r"\breport\b", r"\brequirements?\b",
+    r"\brestrictions?\b", r"\brisk\b", r"\broute\b", r"\bsafe\b",
+    r"\bsafety\b", r"\bseason\b", r"\bsolo\b", r"\bstatus\b", r"\btime\b",
+    r"\btravel uk\b", r"\bupdate\b", r"\btravel us\b", r"\bvaccines?\b",
+    r"\bvideo\b", r"\bvisa\b", r"\bvlog\b", r"\byoutube\b", r"\bzoos?\b",
+    r"\bbeaches\b", r"\btravel canada\b", r"\btravel from india\b",
     # DE
     r"\bwie\b", r"\bwarum\b", r"\berfahrung", r"\btipps\b", r"reisef[uü]hrer",
     r"\bwann\b", r"\breddit\b", r"\bplanen\b", r"highlights?\b", r"\bbilder\b",
@@ -74,15 +92,15 @@ INFORMATIONAL_PATTERNS: list[str] = [
 # facilement filtrable et contrôlable par échantillonnage.
 COMMERCIAL_PATTERNS: list[str] = [
     # EN
-    r"\btrip\b", r"\btour\b", r"\btours\b", r"\bvacation\b", r"\bholiday",
+    r"\btrips?\b", r"\btours?\b", r"\bvacation\b", r"\bholiday",
     r"\btravel agen(cy|cies|t|ts)\b", r"\btravel compan(y|ies)\b", r"\btravel service\b",
+    r"\bluxury\b", r"\bspecialist\b", r"\btravel online\b",
     # FR
-    r"\bvoyage\b", r"\bcircuit\b", r"\bs[ée]jour\b", r"\bexcursion\b",
+    r"\bvoyage\b", r"\bcircuit\b", r"\bs[ée]jour\b", r"\bexcursions?\b",
     # DE
     r"\breise\b", r"\burlaub\b", r"\brundreise\b",
     # IT
     r"\bviaggio\b", r"\bvacanza\b",
-    
 ]
 
 def _first_match(text: str, patterns: list[str]) -> str | None:

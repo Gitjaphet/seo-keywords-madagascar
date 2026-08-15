@@ -35,6 +35,32 @@ def test_auto_filter_flags_competitor_brands():
     assert "excursion nosy be tarif" in {r.keyword for r in result.keeper}
 
 
+def test_auto_filter_detects_wilderness_travel_and_kit_contamination():
+    """Régression: wilderness travel = vrai concurrent (Berkeley, circuits
+    Madagascar actifs, vérifié web) ; travel kit/set = contamination
+    SKIN1004 confirmée (même famille produit que 'centella travel kit')."""
+    records = [
+        KeywordRecord(
+            keyword="madagascar wilderness travel", lang="en",
+            source="autocomplete", seed="madagascar trip w",
+        ),
+        KeywordRecord(
+            keyword="madagascar travel kit", lang="en",
+            source="autocomplete", seed="madagascar trip k",
+        ),
+        KeywordRecord(
+            keyword="madagascar travel set", lang="en",
+            source="autocomplete", seed="madagascar trip s",
+        ),
+    ]
+    result = auto_filter(records)
+    competitor_keywords = {r.keyword for r in result.competitor}
+    off_topic_keywords = {r.keyword for r in result.off_topic}
+    assert "madagascar wilderness travel" in competitor_keywords
+    assert "madagascar travel kit" in off_topic_keywords
+    assert "madagascar travel set" in off_topic_keywords
+
+
 def test_auto_filter_flags_off_topic_false_positives():
     records = [
         _record("circuit automobile madagascar"),  # piège: "circuit" = course, pas tourisme

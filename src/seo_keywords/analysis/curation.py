@@ -28,7 +28,7 @@ COMPETITOR_BRANDS: list[str] = [
     "club med", "carrefour", "bourdon", "air france",
     "jet2", "british airways", "virgin", "mercury holidays", "kensington tours",
     "intrepid", "gebeco", "marco polo", "turisanda", "holidaycheck", "world insight",
-    "dadamanga", "jangaria",
+    "dadamanga", "jangaria", "wilderness travel",
 ]
 
 # Patterns de faux positifs sémantiques ou de mauvaise audience,
@@ -37,11 +37,13 @@ OFF_TOPIC_PATTERNS: list[str] = [
     r"\bmovie\b", r"\bapk\b", r"automobile", r"\bchien\b",
     r"recrutement", r"comment créer", r"chiffres", r"\bfilm\b",
     r"liste tour opérateur", r"tour operateur professionnel",
-    r"release date", r"centella", r"skin1004",  # gamme cosmétique, film Madagascar 4
+    r"release date", r"centella", r"skin1004",
     r"national holidays?\b", r"official holidays?\b", r"major holidays?\b",
-    # calendrier de jours fériés (RH/expat), pas une recherche de voyage
-    r"amazon prime", r"grand tour bentley",  # émission TV "The Grand Tour"
+    r"amazon prime", r"grand tour bentley",
     r"vanilla travel (size|spray)",
+    r"\bevolution travel\b", r"\btravel kit\b", r"\btravel set\b",
+    r"\btravel song\b", r"\btravel poster\b", r"\bossan\b",
+    r"\btriplets\b", r"what (does|do) .+ mean\b", r"\btravel to$",
 ]
 
 @dataclass(frozen=True, slots=True)
