@@ -42,21 +42,23 @@ TRANSACTIONAL_PATTERNS: list[str] = [
 
 INFORMATIONAL_PATTERNS: list[str] = [
     # FR
-    r"^que faire", r"^comment\b", r"^pourquoi\b", r"\bavis\b", r"\bblog\b",
-    r"\bconseil", r"\bguide\b", r"itin[ée]raire", r"^quand\b",
+    r"\bque faire\b", r"\bcomment\b", r"\bpourquoi\b", r"\bavis\b", r"\bblog\b",
+    r"\bconseil", r"\bguide\b", r"itin[ée]raire", r"\bquand\b",
     # EN
-    r"^how to", r"^what to", r"^why\b", r"\breview", r"\btips\b",
-    r"\bguide\b", r"\bitinerary\b", r"^when\b", r"^best time",
-    r"^is\b", r"^are\b", r"^do i\b", r"^does\b", r"^can\b",
-    r"^how many\b", r"^how safe\b",
+    r"\bhow to\b", r"\bwhat to\b", r"\bwhy\b", r"\breview", r"\btips\b",
+    r"\bguide\b", r"\bitinerary\b", r"\bwhen\b", r"\bbest time\b",
+    r"\bis\b", r"\bare\b", r"\bdo i\b", r"\bdoes\b", r"\bcan\b",
+    r"\bhow many\b", r"\bhow safe\b",
     # DE
-    r"^wie\b", r"^warum\b", r"\berfahrung", r"\btipps\b", r"reisef[uü]hrer",
-    r"^wann\b", r"\breddit\b", r"\bplanen\b", r"highlights?\b", r"\bbilder\b",
+    r"\bwie\b", r"\bwarum\b", r"\berfahrung", r"\btipps\b", r"reisef[uü]hrer",
+    r"\bwann\b", r"\breddit\b", r"\bplanen\b", r"highlights?\b", r"\bbilder\b",
     r"\baktuell\b", r"reise wert", r"urlaub wert", r"was beachten",
-    r"\bsprache\b",
+    r"\bsprache\b", r"\bgef[aä]hrlich\b", r"\bforum\b", r"reisezeit", r"jahreszeit",
+    r"\bwohin\b", r"\bkarte\b",
     # IT
-    r"^come\b", r"^perch[eé]\b", r"\brecensioni\b", r"\bconsigli\b",
-    r"\bitinerario\b", r"^quando\b", r"cosa portare", r"\bmappa\b", r"\bmap\b",
+    r"\bcome\b", r"\bperch[eé]\b", r"\brecensioni\b", r"\bconsigli\b",
+    r"\bitinerario\b", r"\bquando\b", r"cosa portare", r"\bmappa\b", r"\bmap\b",
+    r"cosa fare\b", r"cosa vedere",
 ]
 
 # Niveau 4 (Google search-intent model): "commercial investigation" — la

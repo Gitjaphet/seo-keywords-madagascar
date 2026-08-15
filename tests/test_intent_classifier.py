@@ -62,6 +62,16 @@ def test_classify_intent_informational_de():
     assert classify_intent("wann nach madagaskar reisen")[0] == "informationnel"
 
 
+def test_classify_intent_catches_question_words_mid_string():
+    """Régression: la méthode de collecte (seed + lettre) place presque
+    toujours le mot interrogatif APRÈS le seed, jamais en tout début de
+    mot-clé. Des patterns ancrés avec '^' rateraient donc systématiquement
+    ces vraies questions. Vérifie que ce n'est plus le cas."""
+    assert classify_intent("vacanza madagascar quando andare")[0] == "informationnel"
+    assert classify_intent("madagascar trip is it safe")[0] == "informationnel"
+    assert classify_intent("strand madagaskar urlaub gefährlich")[0] == "informationnel"
+
+
 def test_classify_intent_informational_it():
     assert classify_intent("madagascar recensioni viaggio")[0] == "informationnel"
     assert classify_intent("quando andare in madagascar")[0] == "informationnel"
