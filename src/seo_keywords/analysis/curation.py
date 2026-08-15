@@ -28,6 +28,7 @@ COMPETITOR_BRANDS: list[str] = [
     "club med", "carrefour", "bourdon", "air france",
     "jet2", "british airways", "virgin", "mercury holidays", "kensington tours",
     "intrepid", "gebeco", "marco polo", "turisanda", "holidaycheck", "world insight",
+    "dadamanga", "jangaria",
 ]
 
 # Patterns de faux positifs sémantiques ou de mauvaise audience,

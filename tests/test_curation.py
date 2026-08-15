@@ -164,6 +164,26 @@ def test_auto_filter_excludes_vanilla_perfume_but_keeps_vanilla_islands():
     assert "madagascar vanilla travel spray" in off_topic_keywords
     assert "madagascar vanilla travel" in keeper_keywords
 
+
+def test_auto_filter_detects_local_competitor_agencies():
+    """Régression: dadamanga (Fort Dauphin, 25 ans, TripAdvisor Traveler's
+    Choice) et jangaria (Diego Suarez) sont de vraies agences concurrentes
+    trouvées via les needs_review, pas du bruit — vérifié par recherche web."""
+    records = [
+        KeywordRecord(
+            keyword="dadamanga madagascar travel experts", lang="en",
+            source="autocomplete", seed="madagascar trip e",
+        ),
+        KeywordRecord(
+            keyword="madagascar jangaria travel", lang="en",
+            source="autocomplete", seed="madagascar trip j",
+        ),
+    ]
+    result = auto_filter(records)
+    competitor_keywords = {r.keyword for r in result.competitor}
+    assert "dadamanga madagascar travel experts" in competitor_keywords
+    assert "madagascar jangaria travel" in competitor_keywords
+
 def test_auto_filter_flags_public_holidays_as_off_topic():
     """'national/official/major holidays' = calendrier RH, pas une recherche
     de voyage -> doit être exclu, pas confondu avec 'holidays' au sens vacances."""
