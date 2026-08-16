@@ -76,6 +76,7 @@ INFORMATIONAL_PATTERNS: list[str] = [
     r"\baktuell\b", r"reise wert", r"urlaub wert", r"was beachten",
     r"\bsprache\b", r"\bgef[aä]hrlich\b", r"\bforum\b", r"reisezeit", r"jahreszeit",
     r"\bwohin\b", r"\bkarte\b",
+    r"reisebericht", r"reiseblog", r"reisewarnung", r"reiseziel",
     # IT
     r"\bcome\b", r"\bperch[eé]\b", r"\brecensioni\b", r"\bconsigli\b",
     r"\bitinerario\b", r"\bquando\b", r"cosa portare", r"\bmappa\b", r"\bmap\b",
@@ -98,9 +99,11 @@ COMMERCIAL_PATTERNS: list[str] = [
     # FR
     r"\bvoyage\b", r"\bcircuit\b", r"\bs[ée]jour\b", r"\bexcursions?\b",
     # DE
-    r"\breise\b", r"\burlaub\b", r"\brundreise\b",
+    r"\breisen?\b", r"\burlaub\b", r"\brundreise\b",
+    r"reiseveranstalter", r"ausflug", r"luxusurlaub",
     # IT
-    r"\bviaggio\b", r"\bvacanza\b",
+    r"\bviaggio\b", r"\bvacanza\b", r"\bsafari\b", r"\bescursion[ei]\b",
+    r"\bagenzia\b", r"\bcrociera\b",
 ]
 
 def _first_match(text: str, patterns: list[str]) -> str | None:

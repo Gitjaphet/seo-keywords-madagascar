@@ -64,11 +64,37 @@ def test_classify_intent_official_safety_and_seasonal_cluster():
     assert classify_intent("madagascar travel january")[0] == "informationnel"
     assert classify_intent("madagascar travel in december")[0] == "informationnel"
 
+def test_classify_commercial_de_compound_words():
+    """Régression: 'reise'/'urlaub' bornés des deux côtés ratent les mots
+    composés allemands collés sans espace (reiseveranstalter, luxusurlaub),
+    même bug que trip/trips en EN mais côté préfixe/suffixe allemand."""
+    assert classify_commercial_fallback("reiseveranstalter madagaskar")[0] == "commercial"
+    assert classify_commercial_fallback("madagaskar luxusurlaub")[0] == "commercial"
+    assert classify_commercial_fallback("ausflug nosy be")[0] == "commercial"
+    assert classify_commercial_fallback("madagaskar reisen")[0] == "commercial"
+
+
+def test_classify_intent_de_travel_content_compounds():
+    assert classify_intent("madagaskar reisebericht")[0] == "informationnel"
+    assert classify_intent("madagaskar reiseblog")[0] == "informationnel"
+    assert classify_intent("madagaskar reisewarnung")[0] == "informationnel"
+    assert classify_intent("madagaskar reiseziel")[0] == "informationnel"
+
+
+def test_classify_commercial_it_safari_and_excursion_cluster():
+    """Régression: cluster safari (63/75 des needs_review_it, 84% du volume)
+    et escursione (orthographe italienne, distincte de 'excursion' FR)
+    n'avaient aucun pattern."""
+    assert classify_commercial_fallback("safari madagascar")[0] == "commercial"
+    assert classify_commercial_fallback("escursione nosy be")[0] == "commercial"
+    assert classify_commercial_fallback("agenzia di viaggi madagascar")[0] == "commercial"
+    assert classify_commercial_fallback("crociera nosy be")[0] == "commercial"
+
 
 def test_classify_intent_wiki_travel_is_navigational():
     assert classify_intent("madagascar wiki travel")[0] == "navigationnel"
 
-    
+
 def test_classify_intent_informational_fr():
     assert classify_intent("que faire a nosy be blog")[0] == "informationnel"
     assert classify_intent("voyage madagascar avis")[0] == "informationnel"
