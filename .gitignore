@@ -22,3 +22,7 @@ data/processed/*
 .vscode/
 .idea/
 .DS_Store
+
+# sauvegardes locales de la base
+data/processed/*.db.bak
+data/raw/google_ads/
