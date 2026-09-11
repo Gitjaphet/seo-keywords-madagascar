@@ -4,20 +4,23 @@ La base est la source de vérité du projet : les CSV sont des exports,
 jamais des états intermédiaires.
 
 Règle centrale : une décision humaine n'est jamais écrasée par le
-pipeline automatique. Cette garantie repose sur `Keyword.intent_source`,
-que les traitements par lot doivent filtrer sur `IntentSource.AUTO`.
+pipeline automatique. Cette garantie repose sur les champs `*_source`,
+que les traitements par lot doivent filtrer sur la valeur AUTO.
 """
-
 
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
 
-from sqlalchemy import Column, Numeric, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, Integer, Numeric, UniqueConstraint
 from sqlalchemy import Enum as SAEnum
 from sqlmodel import Field, Relationship, SQLModel
 
 __all__ = [
+    "Cluster",
+    "ClusterSource",
+    "ClusterStatus",
+    "ClusteringRun",
     "Intent",
     "IntentSource",
     "Keyword",
@@ -61,11 +64,36 @@ class IntentSource(str, Enum):
     MANUAL = "manual"
 
 
+class ClusterSource(str, Enum):
+    """Même logique que IntentSource, appliquée au regroupement.
+
+    Un mot-clé déplacé à la main dans un autre cluster garde MANUAL et
+    survit aux recalculs mensuels.
+    """
+
+    UNSET = "unset"
+    AUTO = "auto"
+    MANUAL = "manual"
+
+
 class KeywordStatus(str, Enum):
     ACTIVE = "active"
     EXCLUDED = "excluded"  # rejeté définitivement, ne revient pas en révision
     COMPETITOR = "competitor"  # marque concurrente
     ARCHIVED = "archived"  # masqué du dashboard, conservé en base
+
+
+class ClusterStatus(str, Enum):
+    """Cycle de vie éditorial d'un cluster.
+
+    C'est le suivi du plan de contenu : où en est la page qui vise ce
+    groupe de mots-clés.
+    """
+
+    TO_CREATE = "to_create"  # aucune page ne le cible encore
+    PUBLISHED = "published"  # une page existe (target_url renseignée)
+    TO_MERGE = "to_merge"  # doublon d'un autre cluster, à fusionner
+    DISCARDED = "discarded"  # hors sujet ou hors de portée
 
 
 class MetricSource(str, Enum):
@@ -85,6 +113,93 @@ class User(SQLModel, table=True):
     created_at: datetime = Field(default_factory=_now)
 
     revisions: list["KeywordRevision"] = Relationship(back_populates="changed_by")
+
+
+class ClusteringRun(SQLModel, table=True):
+    """Trace d'un recalcul de regroupement.
+
+    Chaque exécution mensuelle crée un run. Conserver les paramètres
+    exacts permet de comparer deux recalculs : quels clusters ont
+    fusionné, lesquels se sont scindés, lesquels sont apparus.
+    Sans ça, un changement de résultat est ininterprétable.
+    """
+
+    __tablename__ = "clustering_run"
+
+    id: int | None = Field(default=None, primary_key=True)
+
+    model_name: str = Field(max_length=120)
+    distance_threshold: float
+    linkage: str = Field(default="complete", max_length=20)
+    # Motif retiré des libellés avant encodage : les termes présents
+    # partout (madagascar, nosy be) saturent le signal et masquent les
+    # différences d'intention.
+    noise_pattern: str = Field(default="", max_length=255)
+
+    keyword_count: int = Field(default=0)
+    cluster_count: int = Field(default=0)
+    created_at: datetime = Field(default_factory=_now, index=True)
+    notes: str = Field(default="", max_length=500)
+
+    clusters: list["Cluster"] = Relationship(back_populates="run")
+
+
+class Cluster(SQLModel, table=True):
+    """Un groupe de mots-clés partageant la même intention.
+
+    Règle métier : un cluster = une page, jamais deux. Deux clusters
+    pointant vers la même target_url signalent une cannibalisation,
+    c'est-à-dire deux pages qui se disputent les mêmes requêtes et se
+    pénalisent mutuellement.
+
+    L'identifiant est volontairement opaque : le mot-clé principal peut
+    changer d'un recalcul à l'autre, pas l'identité du cluster.
+    """
+
+    __tablename__ = "cluster"
+
+    id: int | None = Field(default=None, primary_key=True)
+    run_id: int = Field(foreign_key="clustering_run.id", index=True)
+
+    # Mot-clé principal : la cible du title et du H1. Choisi sur le plus
+    # gros volume quand il est connu, sur la centralité sémantique sinon.
+    # FK circulaire avec keyword.cluster_id, d'où le use_alter : SQLite
+    # ne peut pas créer les deux tables sans différer une contrainte.
+    head_keyword_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("keyword.id", use_alter=True), nullable=True
+        ),
+    )
+
+    # URL de la page qui vise ce cluster. Vide = page à écrire.
+    target_url: str | None = Field(default=None, index=True, max_length=500)
+    status: ClusterStatus = Field(
+        default=ClusterStatus.TO_CREATE,
+        sa_column=Column(
+            SAEnum(ClusterStatus, values_callable=_enum_values),
+            index=True,
+            nullable=False,
+            server_default=ClusterStatus.TO_CREATE.value,
+        ),
+    )
+
+    keyword_count: int = Field(default=0)
+    # Somme des volumes connus du groupe. Null-safe : un volume absent
+    # vaut zéro ici, mais ne signifie pas que le mot-clé est sans valeur
+    # (Google Ads ne chiffre pas la longue traîne).
+    total_volume: int = Field(default=0, index=True)
+    notes: str = Field(default="", max_length=500)
+    created_at: datetime = Field(default_factory=_now)
+
+    run: ClusteringRun = Relationship(back_populates="clusters")
+    keywords: list["Keyword"] = Relationship(
+        back_populates="cluster_ref",
+        sa_relationship_kwargs={"foreign_keys": "[Keyword.cluster_id]"},
+    )
+    head_keyword: "Keyword" = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[Cluster.head_keyword_id]"},
+    )
 
 
 class Keyword(SQLModel, table=True):
@@ -109,25 +224,47 @@ class Keyword(SQLModel, table=True):
     seed: str = Field(default="", index=True, max_length=255)
     collected_at: datetime = Field(default_factory=_now)
 
-    cluster: str | None = Field(default=None, index=True, max_length=100)
     intent: Intent | None = Field(
         default=None,
-        sa_column=Column(SAEnum(Intent, values_callable=_enum_values),
-                         index=True, nullable=True),
+        sa_column=Column(
+            SAEnum(Intent, values_callable=_enum_values), index=True, nullable=True
+        ),
     )
     intent_source: IntentSource = Field(
         default=IntentSource.UNSET,
-        sa_column=Column(SAEnum(IntentSource, values_callable=_enum_values),
-                         index=True, nullable=False,
-                         server_default=IntentSource.UNSET.value),
+        sa_column=Column(
+            SAEnum(IntentSource, values_callable=_enum_values),
+            index=True,
+            nullable=False,
+            server_default=IntentSource.UNSET.value,
+        ),
     )
     matched_rule: str | None = Field(default=None, max_length=255)
 
+    cluster_id: int | None = Field(
+        default=None, foreign_key="cluster.id", index=True
+    )
+    cluster_source: ClusterSource = Field(
+        default=ClusterSource.UNSET,
+        sa_column=Column(
+            SAEnum(ClusterSource, values_callable=_enum_values),
+            index=True,
+            nullable=False,
+            server_default=ClusterSource.UNSET.value,
+        ),
+    )
+    # Ancien regroupement par seed, conservé le temps de valider le
+    # clustering sémantique. À supprimer dans une migration ultérieure.
+    cluster: str | None = Field(default=None, max_length=100)
+
     status: KeywordStatus = Field(
         default=KeywordStatus.ACTIVE,
-        sa_column=Column(SAEnum(KeywordStatus, values_callable=_enum_values),
-                         index=True, nullable=False,
-                         server_default=KeywordStatus.ACTIVE.value),
+        sa_column=Column(
+            SAEnum(KeywordStatus, values_callable=_enum_values),
+            index=True,
+            nullable=False,
+            server_default=KeywordStatus.ACTIVE.value,
+        ),
     )
     notes: str = Field(default="", max_length=500)
 
@@ -140,13 +277,20 @@ class Keyword(SQLModel, table=True):
     reviewed_at: datetime | None = Field(default=None)
     reviewed_by_id: int | None = Field(default=None, foreign_key="user.id")
 
+    cluster_ref: Cluster | None = Relationship(
+        back_populates="keywords",
+        sa_relationship_kwargs={"foreign_keys": "[Keyword.cluster_id]"},
+    )
     metrics: list["KeywordMetric"] = Relationship(
         back_populates="keyword_ref",
         sa_relationship_kwargs={"cascade": "all, delete-orphan"},
     )
     revisions: list["KeywordRevision"] = Relationship(
         back_populates="keyword_ref",
-        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+        sa_relationship_kwargs={
+            "cascade": "all, delete-orphan",
+            "foreign_keys": "[KeywordRevision.keyword_id]",
+        },
     )
 
     @property
@@ -156,6 +300,11 @@ class Keyword(SQLModel, table=True):
             self.intent_source is IntentSource.MANUAL
             or self.status is not KeywordStatus.ACTIVE
         )
+
+    @property
+    def cluster_is_locked(self) -> bool:
+        """Vrai si le recalcul ne doit pas réaffecter ce mot-clé."""
+        return self.cluster_source is ClusterSource.MANUAL
 
 
 # Ancien nom, conservé le temps que curation.py, repository.py et les
@@ -202,8 +351,11 @@ class KeywordMetric(SQLModel, table=True):
 
     source: MetricSource = Field(
         default=MetricSource.GOOGLE_ADS,
-        sa_column=Column(SAEnum(MetricSource, values_callable=_enum_values),
-                         index=True, nullable=False),
+        sa_column=Column(
+            SAEnum(MetricSource, values_callable=_enum_values),
+            index=True,
+            nullable=False,
+        ),
     )
     fetched_at: datetime = Field(default_factory=_now, index=True)
 
@@ -231,7 +383,10 @@ class KeywordRevision(SQLModel, table=True):
     changed_at: datetime = Field(default_factory=_now, index=True)
     reason: str = Field(default="", max_length=255)
 
-    keyword_ref: Keyword = Relationship(back_populates="revisions")
+    keyword_ref: Keyword = Relationship(
+        back_populates="revisions",
+        sa_relationship_kwargs={"foreign_keys": "[KeywordRevision.keyword_id]"},
+    )
     changed_by: User | None = Relationship(back_populates="revisions")
 
 
