@@ -191,6 +191,11 @@ class Cluster(SQLModel, table=True):
     total_volume: int = Field(default=0, index=True)
     notes: str = Field(default="", max_length=500)
     created_at: datetime = Field(default_factory=_now)
+    # Une validation humaine étalée sur 203 clusters et plusieurs
+    # sessions a besoin de savoir où elle s'est arrêtée : TO_CREATE ne
+    # distingue pas « relu et gardé » de « jamais regardé ».
+    reviewed_at: datetime | None = Field(default=None, index=True)
+    reviewed_by_id: int | None = Field(default=None, foreign_key="user.id")
 
     run: ClusteringRun = Relationship(back_populates="clusters")
     keywords: list["Keyword"] = Relationship(

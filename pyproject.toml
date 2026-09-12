@@ -46,6 +46,9 @@ target-version = "py312"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM"]
+# UP042 suggère StrEnum : incompatible avec la façon dont SQLModel et
+# SQLAlchemy sérialisent nos colonnes sa_column=Column(SAEnum(...)).
+ignore = ["UP042"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

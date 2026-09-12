@@ -9,6 +9,7 @@ from rich.console import Console
 from rich.logging import RichHandler
 from rich.progress import track
 
+from seo_keywords.analysis.cluster_export import build_rows, export_clusters_csv
 from seo_keywords.analysis.clustering import (
     cluster_summary,
     export_clustered_csv,
@@ -370,6 +371,54 @@ def cluster_semantic(
         else:
             session.commit()
             console.print("\n[bold green]✓ Clusters enregistrés[/bold green]")
+
+
+@app.command("export-clusters")
+def export_clusters(
+    run_id: int = typer.Option(
+        0, help="Run à exporter. 0 = le plus récent."
+    ),
+    output: str = typer.Option(
+        "", help="Chemin du CSV. Par défaut data/processed/clusters_review.csv"
+    ),
+    top: int = typer.Option(0, help="N'exporter que les N premiers clusters. 0 = tous."),
+):
+    """Étape 6 : exporte les clusters pour validation manuelle.
+
+    Trié par potentiel réel, pas par taille : l'ancrage local et
+    l'intention commerciale priment, la concurrence publicitaire pénalise.
+    Les colonnes decision / fusionner_avec / url_cible / commentaire sont
+    vides, à remplir."""
+    from sqlmodel import Session, create_engine
+
+    engine = create_engine(f"sqlite:///{settings.database_path}")
+    target = output or f"{settings.processed_output_dir}/clusters_review.csv"
+
+    with Session(engine) as session:
+        rows = build_rows(session, run_id or None)
+
+    if not rows:
+        console.print(
+            "[bold red]Aucun cluster à exporter. "
+            "Lance d'abord `cluster-semantic`.[/bold red]"
+        )
+        raise typer.Exit(1)
+
+    if top:
+        rows = rows[:top]
+
+    export_clusters_csv(rows, target)
+
+    console.print(f"[bold cyan]Export clusters[/bold cyan] ({len(rows)} lignes)")
+    console.print(f"\n{'prio':>6}  {'n':>3}  tête")
+    for row in rows[:15]:
+        console.print(f"{row.priority:>6.2f}  {row.keyword_count:>3}  {row.head}")
+
+    console.print(f"\n[bold green]✓ {target}[/bold green]")
+    console.print(
+        "[dim]Colonnes à remplir : decision (garder/fusionner/scinder/ecarter), "
+        "fusionner_avec (cluster_id), url_cible, commentaire[/dim]"
+    )
 
 
 if __name__ == "__main__":
