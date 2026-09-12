@@ -249,3 +249,21 @@ def test_run_clustering_sans_mot_cle_actif(session: Session) -> None:
     result = sc.run_clustering(session)
     assert result.cluster_count == 0
     assert result.keyword_count == 0
+
+
+def test_pick_head_index_prefere_la_formulation_courte() -> None:
+    """À sens équivalent, la requête la plus courte est la cible.
+
+    Sans pénalité de longueur, la centralité choisit le compromis moyen
+    du groupe ('madagaskar urlaub machen') plutôt que la requête
+    principale ('madagaskar urlaub').
+    """
+    vectors = np.array([[1.0, 0.0], [0.98, 0.2], [0.98, -0.2]])
+    labels = ["madagaskar urlaub machen wann", "madagaskar urlaub", "urlaub tipps"]
+    assert sc.pick_head_index([0, 1, 2], vectors, [None] * 3, labels) == 1
+
+
+def test_pick_head_index_sans_labels_reste_compatible() -> None:
+    vectors = np.array([[1.0, 0.0], [0.9, 0.1], [-1.0, 0.0]])
+    head = sc.pick_head_index([0, 1, 2], vectors, [None] * 3)
+    assert head in (0, 1)

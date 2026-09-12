@@ -54,6 +54,8 @@ DEFAULT_MODEL = "paraphrase-multilingual-MiniLM-L12-v2"
 DEFAULT_THRESHOLD = 0.40
 DEFAULT_LINKAGE = "complete"
 DEFAULT_NOISE_PATTERN = r"\b(madagascar|madagaskar|nosy\s*be|hell\s*ville)\b"
+# Pénalité appliquée par mot supplémentaire lors du choix du head term.
+LENGTH_PENALTY = 0.10
 
 REVISION_REASON = "clustering sémantique"
 
@@ -110,6 +112,7 @@ def pick_head_index(
     member_indices: list[int],
     vectors: np.ndarray,
     volumes: list[int | None],
+    labels: list[str] | None = None,
 ) -> int:
     """Désigne le mot-clé principal du groupe.
 
@@ -121,6 +124,8 @@ def pick_head_index(
     """
     if len(member_indices) == 1:
         return member_indices[0]
+    if labels is None:
+        labels = [""] * (max(member_indices) + 1)
 
     known = [(volumes[i], i) for i in member_indices if volumes[i] is not None]
     if known:
@@ -132,7 +137,14 @@ def pick_head_index(
     if norm:
         centroid = centroid / norm
     similarities = subset @ centroid
-    return member_indices[int(similarities.argmax())]
+
+    # La centralité seule choisit le compromis moyen du groupe, pas la
+    # requête principale : 'madagaskar urlaub machen' plutôt que
+    # 'madagaskar urlaub'. À sens égal, la formulation la plus courte est
+    # presque toujours la plus recherchée, d'où cette pénalité de longueur.
+    word_counts = np.array([len(labels[i].split()) for i in member_indices])
+    scores = similarities / (1 + LENGTH_PENALTY * word_counts)
+    return member_indices[int(scores.argmax())]
 
 
 def _load_volumes(session: Session, keyword_ids: list[int]) -> dict[int, int]:
@@ -239,7 +251,7 @@ def run_clustering(
     largest_size = 0
 
     for member_indices in members.values():
-        head_index = pick_head_index(member_indices, vectors, label_volumes)
+        head_index = pick_head_index(member_indices, vectors, label_volumes, labels)
         group_keywords = [k for i in member_indices for k in by_label[labels[i]]]
         head_keyword = by_label[labels[head_index]][0]
 
