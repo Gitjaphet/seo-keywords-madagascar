@@ -18,6 +18,7 @@ from sqlmodel import Field, Relationship, SQLModel
 
 __all__ = [
     "Cluster",
+    "ClusterPage",
     "ClusterSource",
     "ClusterStatus",
     "ClusteringRun",
@@ -198,12 +199,68 @@ class Cluster(SQLModel, table=True):
     reviewed_by_id: int | None = Field(default=None, foreign_key="user.id")
 
     run: ClusteringRun = Relationship(back_populates="clusters")
+    pages: list["ClusterPage"] = Relationship(
+        back_populates="cluster",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"},
+    )
     keywords: list["Keyword"] = Relationship(
         back_populates="cluster_ref",
         sa_relationship_kwargs={"foreign_keys": "[Keyword.cluster_id]"},
     )
     head_keyword: "Keyword" = Relationship(
         sa_relationship_kwargs={"foreign_keys": "[Cluster.head_keyword_id]"},
+    )
+
+
+class ClusterPage(SQLModel, table=True):
+    """La page qui vise un cluster, dans une langue donnée.
+
+    Un cluster est une intention de recherche ; une page en est la
+    réalisation dans une langue. Le cluster « excursion requin-baleine »
+    donne trois pages — fr, en, it — qui sont par construction les
+    traductions les unes des autres : c'est ce qui alimentera les
+    balises hreflang.
+
+    Le mot-clé principal diffère d'une langue à l'autre
+    ('excursion requin baleine nosy be' vs 'nosy be whale shark
+    excursion') : chaque page porte donc son propre head.
+    """
+
+    __tablename__ = "cluster_page"
+    __table_args__ = (
+        UniqueConstraint("cluster_id", "lang", name="uq_cluster_page_lang"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    cluster_id: int = Field(foreign_key="cluster.id", index=True)
+    lang: str = Field(index=True, max_length=5)
+
+    head_keyword_id: int | None = Field(
+        default=None,
+        sa_column=Column(
+            Integer, ForeignKey("keyword.id", use_alter=True), nullable=True
+        ),
+    )
+
+    target_url: str | None = Field(default=None, index=True, max_length=500)
+    proposed_title: str = Field(default="", max_length=255)
+    status: ClusterStatus = Field(
+        default=ClusterStatus.TO_CREATE,
+        sa_column=Column(
+            SAEnum(ClusterStatus, values_callable=_enum_values),
+            index=True,
+            nullable=False,
+            server_default=ClusterStatus.TO_CREATE.value,
+        ),
+    )
+    keyword_count: int = Field(default=0)
+    notes: str = Field(default="", max_length=500)
+    created_at: datetime = Field(default_factory=_now)
+    reviewed_at: datetime | None = Field(default=None, index=True)
+
+    cluster: Cluster = Relationship(back_populates="pages")
+    head_keyword: "Keyword" = Relationship(
+        sa_relationship_kwargs={"foreign_keys": "[ClusterPage.head_keyword_id]"},
     )
 
 

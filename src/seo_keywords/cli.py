@@ -10,6 +10,7 @@ from rich.logging import RichHandler
 from rich.progress import track
 
 from seo_keywords.analysis.cluster_export import build_rows, export_clusters_csv
+from seo_keywords.analysis.cluster_pages import build_pages
 from seo_keywords.analysis.clustering import (
     cluster_summary,
     export_clustered_csv,
@@ -419,6 +420,51 @@ def export_clusters(
         "[dim]Colonnes à remplir : decision (garder/fusionner/scinder/ecarter), "
         "fusionner_avec (cluster_id), url_cible, commentaire[/dim]"
     )
+
+
+@app.command("build-pages")
+def build_pages_cmd(
+    run_id: int = typer.Option(0, help="Run à décliner. 0 = le plus récent."),
+    min_keywords: int = typer.Option(
+        1,
+        help="Nombre minimal de mots-clés dans une langue pour justifier "
+        "une page. 2 écarte les langues anecdotiques.",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Calcule et affiche, puis annule sans écrire"
+    ),
+):
+    """Étape 7 : décline chaque cluster en une page par langue.
+
+    Les pages d'un même cluster sont par construction les traductions
+    les unes des autres : c'est ce qui alimentera les balises hreflang.
+    Une page déjà relue (reviewed_at renseigné) n'est jamais modifiée."""
+    from sqlmodel import Session, create_engine
+
+    engine = create_engine(f"sqlite:///{settings.database_path}")
+
+    with Session(engine) as session:
+        result = build_pages(session, run_id or None, min_keywords)
+
+        console.print(f"\n[bold cyan]Pages par langue[/bold cyan] (run {result.run_id})")
+        console.print(f"  créées      : {result.created}")
+        console.print(f"  rafraîchies : {result.updated}")
+        if result.preserved:
+            console.print(
+                f"  [yellow]préservées  : {result.preserved} "
+                f"— déjà relues, non modifiées[/yellow]"
+            )
+        console.print()
+        for lang, count in result.pages_by_lang.items():
+            console.print(f"  {lang:<4} {count}")
+
+        if dry_run:
+            session.rollback()
+            console.print("\n[yellow]dry-run : rien n'a été écrit[/yellow]")
+        else:
+            session.commit()
+            total = sum(result.pages_by_lang.values())
+            console.print(f"\n[bold green]✓ {total} pages[/bold green]")
 
 
 if __name__ == "__main__":
