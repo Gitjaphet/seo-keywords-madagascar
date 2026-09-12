@@ -29,6 +29,8 @@ COMPETITOR_BRANDS: list[str] = [
     "jet2", "british airways", "virgin", "mercury holidays", "kensington tours",
     "intrepid", "gebeco", "marco polo", "turisanda", "holidaycheck", "world insight",
     "dadamanga", "jangaria", "wilderness travel",
+    "aldi", "hofer", "alpitour", "dertour", "berge und meer",
+    "meiers weltreisen", "studiosus",
 ]
 
 # Patterns de faux positifs sémantiques ou de mauvaise audience,
@@ -44,6 +46,30 @@ OFF_TOPIC_PATTERNS: list[str] = [
     r"\bevolution travel\b", r"\btravel kit\b", r"\btravel set\b",
     r"\btravel song\b", r"\btravel poster\b", r"\bossan\b",
     r"\btriplets\b", r"what (does|do) .+ mean\b", r"\btravel to$",
+    # Le film d'animation, ramené par les seeds sur les lémuriens
+    r"\bhalloween\b", r"\bcostumes?\b", r"mi piace se ti muovi",
+    r"i like to move it", r"\bdreamworks\b", r"\bcartoon\b",
+    r"\bdessin anim[ée]\b", r"\bzeichentrick\b",
+    # Immobilier et administration locale, hors offre touristique
+    r"agence immobili[èe]re", r"\bimmobilier\b", r"\bimmobilien\b",
+    r"\ba vendre\b", r"\bfor sale\b", r"\bzu verkaufen\b", r"\bin vendita\b",
+    r"\blocation appartement\b", r"\bmaire de\b", r"\bmayor of\b",
+    r"\bcommune urbaine\b", r"\bpr[ée]fecture\b",
+    r"code postal", r"\bbanque\b", r"\borphelinat\b", r"conversion rate",
+    r"terrain a vendre", r"park narodowy", r"reserva natural",
+    # Homonymies et faux positifs zoologiques ou géographiques
+    r"\bskink\b", r"wind cave", r"coton de tul[ée]ar",
+    r"\bemploi\b", r"\bjobs?\b", r"\bstellenangebot\b",
+    # Hébergement : hors offre de l'agence, qui vend des excursions et
+    # des circuits. Le seul cluster "hotel vohemar madagascar" pesait
+    # 130 mots-clés.
+    r"\bh[oô]tels?\b", r"\blodges?\b", r"\bguest\s?house", r"\bresorts?\b",
+    r"\bauberges?\b", r"chambres? d.h[oô]te", r"\bbungalows?\b",
+    r"\bh[ée]bergement", r"\bg[iî]tes?\b", r"\bairbnb\b",
+    r"\bunterkunft\b", r"\bunterk[uü]nfte\b", r"\bpension\b",
+    r"\balbergh?[io]\b", r"\balloggi", r"\bpensione\b",
+    r"where to stay", r"o[uù] (dormir|loger|se loger)", r"wo [uü]bernachten",
+    r"dove dormire", r"dove alloggiare",
 ]
 
 @dataclass(frozen=True, slots=True)

@@ -10,7 +10,10 @@ from rich.logging import RichHandler
 from rich.progress import track
 
 from seo_keywords.analysis.cluster_export import build_rows, export_clusters_csv
+from seo_keywords.analysis.cluster_fixes import apply_safe_fixes
 from seo_keywords.analysis.cluster_pages import build_pages
+from seo_keywords.analysis.cluster_qa import audit_clusters
+from seo_keywords.analysis.cluster_split import split_cluster
 from seo_keywords.analysis.clustering import (
     cluster_summary,
     export_clustered_csv,
@@ -29,6 +32,7 @@ from seo_keywords.analysis.intent_classifier import (
     export_classified_csv,
     export_needs_review_csv,
 )
+from seo_keywords.analysis.intent_db import classify_keywords
 from seo_keywords.analysis.seasonality import export_monthly_csv, export_season_summary_csv
 from seo_keywords.analysis.semantic_clustering import (
     DEFAULT_LINKAGE,
@@ -465,6 +469,243 @@ def build_pages_cmd(
             session.commit()
             total = sum(result.pages_by_lang.values())
             console.print(f"\n[bold green]✓ {total} pages[/bold green]")
+
+
+@app.command("audit-clusters")
+def audit_clusters_cmd(
+    run_id: int = typer.Option(0, help="Run à auditer. 0 = le plus récent."),
+    merge_threshold: float = typer.Option(
+        0.85, help="Similarité entre centroïdes au-delà de laquelle deux "
+        "clusters disent la même chose."
+    ),
+    oversized: int = typer.Option(
+        40, help="Taille au-delà de laquelle un cluster n'est plus une page."
+    ),
+    output: str = typer.Option("", help="CSV de sortie. Vide = pas de fichier."),
+):
+    """Étape 8 : signale les clusters à revoir.
+
+    Ne juge pas les intentions — cherche ce qui cloche : doublons,
+    mélanges, marques concurrentes, fourre-tout. La relecture humaine
+    porte ensuite sur une trentaine de cas au lieu de deux cents."""
+    import csv as _csv
+
+    from sqlmodel import Session, create_engine
+
+    engine = create_engine(f"sqlite:///{settings.database_path}")
+
+    with Session(engine) as session:
+        issues = audit_clusters(
+            session,
+            run_id or None,
+            merge_threshold=merge_threshold,
+            oversized=oversized,
+        )
+
+    if not issues:
+        console.print("[bold green]✓ Aucun défaut détecté[/bold green]")
+        return
+
+    by_kind: dict[str, list] = {}
+    for issue in issues:
+        by_kind.setdefault(issue.kind.value, []).append(issue)
+
+    console.print(f"[bold cyan]Audit[/bold cyan] ({len(issues)} signalements)\n")
+    for kind in sorted(by_kind):
+        rows = by_kind[kind]
+        auto = sum(1 for r in rows if r.auto_applicable)
+        console.print(
+            f"  {kind:<22} {len(rows):>3}   "
+            f"[dim]dont {auto} applicables automatiquement[/dim]"
+        )
+
+    console.print()
+    for kind in sorted(by_kind):
+        console.print(f"[bold]{kind}[/bold]")
+        for issue in by_kind[kind][:8]:
+            console.print(f"  [{issue.cluster_id}] {issue.detail}")
+            console.print(f"        → {issue.suggestion}")
+        if len(by_kind[kind]) > 8:
+            console.print(f"  [dim]... et {len(by_kind[kind]) - 8} autres[/dim]")
+        console.print()
+
+    if output:
+        with open(output, "w", encoding="utf-8", newline="") as handle:
+            writer = _csv.writer(handle)
+            writer.writerow(
+                ["cluster_id", "type", "detail", "suggestion", "auto_applicable"]
+            )
+            for issue in issues:
+                writer.writerow(
+                    [
+                        issue.cluster_id,
+                        issue.kind.value,
+                        issue.detail,
+                        issue.suggestion,
+                        int(issue.auto_applicable),
+                    ]
+                )
+        console.print(f"[bold green]✓ {output}[/bold green]")
+
+
+@app.command("apply-audit")
+def apply_audit_cmd(
+    run_id: int = typer.Option(0, help="Run à corriger. 0 = le plus récent."),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Calcule et affiche, puis annule sans écrire"
+    ),
+):
+    """Étape 9 : écarte les marques concurrentes et les mots-clés hors sujet.
+
+    N'applique QUE ce qui repose sur des listes explicites et vérifiées.
+    Les fusions de clusters restent un arbitrage humain : le modèle
+    rapproche des thèmes qui partagent du vocabulaire sans partager
+    l'intention."""
+    from sqlmodel import Session, create_engine
+
+    engine = create_engine(f"sqlite:///{settings.database_path}")
+
+    with Session(engine) as session:
+        result = apply_safe_fixes(session, run_id or None)
+
+        console.print(f"\n[bold cyan]Corrections sûres[/bold cyan] (run {result.run_id})")
+        console.print(f"  marques concurrentes : {result.competitors}")
+        console.print(f"  hors sujet           : {result.off_topic}")
+        console.print(f"  clusters écartés     : {result.clusters_discarded}")
+
+        if result.examples:
+            console.print()
+            for line in result.examples:
+                console.print(f"  [dim]{line}[/dim]")
+
+        if dry_run:
+            session.rollback()
+            console.print("\n[yellow]dry-run : rien n'a été écrit[/yellow]")
+        else:
+            session.commit()
+            console.print(
+                "\n[bold green]✓ Appliqué[/bold green] — relance "
+                "`cluster-semantic` puis `build-pages` pour recalculer "
+                "sans ces mots-clés"
+            )
+
+
+@app.command("split-cluster")
+def split_cluster_cmd(
+    cluster_id: int = typer.Argument(..., help="Cluster à redécouper"),
+    threshold: float = typer.Option(
+        0.30, help="Seuil local, plus strict que le seuil global (0.40)."
+    ),
+    by_lang: bool = typer.Option(
+        False,
+        "--by-lang",
+        help="Scinde d'abord par langue. Nécessaire quand le cluster "
+        "mélange des prestations différentes qui ne partagent qu'un "
+        "niveau d'abstraction (excursion vs reise).",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Calcule et affiche, puis annule sans écrire"
+    ),
+):
+    """Étape 10 : redécoupe un cluster fourre-tout à un seuil plus strict.
+
+    Les mots-clés déplacés passent en cluster_source = manual : la
+    décision survit à tous les recalculs futurs."""
+    from sqlmodel import Session, create_engine
+
+    engine = create_engine(f"sqlite:///{settings.database_path}")
+
+    with Session(engine) as session:
+        try:
+            result = split_cluster(session, cluster_id, threshold, by_lang=by_lang)
+        except ValueError as exc:
+            console.print(f"[bold red]{exc}[/bold red]")
+            raise typer.Exit(1) from exc
+
+        if not result.new_cluster_ids:
+            console.print(
+                f"[yellow]Cluster {cluster_id} trop petit pour être scindé[/yellow]"
+            )
+            raise typer.Exit(0)
+
+        console.print(
+            f"\n[bold cyan]Scission du cluster {cluster_id}[/bold cyan] "
+            f"(seuil {threshold}) -> {len(result.new_cluster_ids)} sous-clusters\n"
+        )
+        for new_id, size, head in zip(
+            result.new_cluster_ids, result.sizes, result.heads, strict=True
+        ):
+            console.print(f"  [{new_id:>4}] {size:>3} mots-clés   {head}")
+
+        if dry_run:
+            session.rollback()
+            console.print("\n[yellow]dry-run : rien n'a été écrit[/yellow]")
+        else:
+            session.commit()
+            console.print(
+                "\n[bold green]✓ Scindé[/bold green] — relance `build-pages` "
+                "pour régénérer les pages"
+            )
+
+
+@app.command("classify-db")
+def classify_db_cmd(
+    lang: str = typer.Option("", help="Limiter à une langue. Vide = toutes."),
+    no_commercial: bool = typer.Option(
+        False,
+        "--no-commercial",
+        help="Désactive le tier 'commercial investigation', à confiance "
+        "plus faible. Actif par défaut : sur plusieurs milliers de "
+        "mots-clés, une intention approximative et tracée vaut mieux "
+        "qu'aucune.",
+    ),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Calcule et affiche, puis annule sans écrire"
+    ),
+):
+    """Étape 3bis : classe l'intention directement en base.
+
+    Une ligne dont intent_source vaut manual n'est jamais touchée."""
+    from sqlmodel import Session, create_engine
+
+    engine = create_engine(f"sqlite:///{settings.database_path}")
+
+    with Session(engine) as session:
+        result = classify_keywords(
+            session, lang or None, include_commercial=not no_commercial
+        )
+
+        rate = (
+            100 * result.classified / result.considered if result.considered else 0
+        )
+        console.print("\n[bold cyan]Classification en base[/bold cyan]")
+        console.print(f"  candidats    : {result.considered}")
+        console.print(f"  classés      : {result.classified} ({rate:.0f}%)")
+        console.print(f"  sans règle   : {result.unmatched}")
+        if result.locked:
+            console.print(
+                f"  [yellow]verrouillés  : {result.locked} — décisions "
+                f"manuelles, non touchées[/yellow]"
+            )
+        console.print()
+        for intent, count in result.by_intent.items():
+            console.print(f"  {intent:<18} {count}")
+
+        commercial = result.by_intent.get("commercial", 0)
+        if commercial:
+            console.print(
+                f"\n[yellow]⚠ {commercial} classés 'commercial' (confiance "
+                f"plus faible). Filtre sur matched_rule LIKE 'commercial:%' "
+                f"et contrôle un échantillon avant de faire confiance au "
+                f"lot.[/yellow]"
+            )
+
+        if dry_run:
+            session.rollback()
+            console.print("\n[yellow]dry-run : rien n'a été écrit[/yellow]")
+        else:
+            session.commit()
+            console.print("\n[bold green]✓ Appliqué[/bold green]")
 
 
 if __name__ == "__main__":

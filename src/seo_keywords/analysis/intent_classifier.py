@@ -81,6 +81,36 @@ INFORMATIONAL_PATTERNS: list[str] = [
     r"\bcome\b", r"\bperch[eé]\b", r"\brecensioni\b", r"\bconsigli\b",
     r"\bitinerario\b", r"\bquando\b", r"cosa portare", r"\bmappa\b", r"\bmap\b",
     r"cosa fare\b", r"cosa vedere",
+    # --- Vocabulaire de DESTINATION -------------------------------------
+    # Ajouté après l'extension des seeds aux circuits terrestres : les
+    # requêtes sur un parc ou une ville portent sur le climat, la faune
+    # et l'accès, pas sur le produit de voyage.
+    # Météo et saison
+    r"\bm[ée]t[ée]o\b", r"\bweather\b", r"\bwetter\b", r"\bclimat", r"\bclimate\b",
+    r"\bclima\b", r"temp[ée]rature", r"\btemperatur\b", r"\bpluie\b", r"\brain",
+    r"\bregen\b", r"\bpioggia\b", r"\bsaison\b", r"\bstagione\b",
+    # Faune et flore
+    r"\bbaleines?\b", r"\bwhales?\b", r"\bwale?n?\b", r"\bbalene?\b",
+    r"\bl[ée]murien", r"\blemurs?\b", r"\blemuren\b", r"\blemuri\b",
+    r"\bcam[ée]l[ée]on", r"\bchameleon", r"\bcham[aä]leon", r"\bcamaleonte",
+    r"\bfaune\b", r"\bwildlife\b", r"\btierwelt\b", r"\bfauna\b",
+    r"\boiseaux?\b", r"\bbirds?\b", r"\bv[ée]g[ée]tation\b",
+    # Nature et baignade
+    r"\bplages?\b", r"\bbeach", r"\bstrand\b", r"\bspiagge?\b",
+    r"piscine naturelle", r"\bcascade", r"\bwaterfall", r"\bgrotte",
+    r"\bcanyon\b", r"\bparc national\b", r"national ?park", r"nationalpark",
+    r"parco nazionale", r"\br[ée]serve\b",
+    # Accès et pratique sur place
+    r"comment (y aller|s.y rendre|se rendre)", r"\bacc[èe]s\b",
+    r"how to get", r"getting (to|there)", r"\banreise\b", r"\bcome arrivare\b",
+    r"\bdistance\b", r"\bdur[ée]e\b", r"\bcamping\b", r"\bbivouac\b",
+    r"\brandonn[ée]e", r"\bhiking\b", r"\bwandern\b", r"\bklettern\b",
+    r"\bescalade\b", r"\bclimbing\b", r"\bescursionismo\b",
+    # Contexte
+    r"\bhistoire\b", r"\bhistory\b", r"\bformation\b", r"\bvisite\b",
+    r"\bg[ée]ologie\b", r"\bkarst\b", r"\bdrone\b", r"\bphotos?\b",
+    r"\bgeschichte\b", r"\bstoria\b",
+    r"\bpopulation\b", r"\bfestival\b", r"\bcarte\b", r"\bmeilleur moment\b",
 ]
 
 # Niveau 4 (Google search-intent model): "commercial investigation" — la
