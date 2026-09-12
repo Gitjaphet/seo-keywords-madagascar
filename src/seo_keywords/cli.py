@@ -1,6 +1,5 @@
 """Point d'entrée CLI : `uv run seo-keywords <commande>`."""
 
-from __future__ import annotations
 
 import logging
 from pathlib import Path
@@ -29,6 +28,13 @@ from seo_keywords.analysis.intent_classifier import (
     export_needs_review_csv,
 )
 from seo_keywords.analysis.seasonality import export_monthly_csv, export_season_summary_csv
+from seo_keywords.analysis.semantic_clustering import (
+    DEFAULT_LINKAGE,
+    DEFAULT_MODEL,
+    DEFAULT_NOISE_PATTERN,
+    DEFAULT_THRESHOLD,
+    run_clustering,
+)
 from seo_keywords.collectors.autocomplete import AutocompleteCollector
 from seo_keywords.collectors.trends import TrendsCollector
 from seo_keywords.config import SEED_KEYWORDS, TARGET_MARKETS, settings
@@ -294,6 +300,76 @@ def classify(
 def markets():
     """Liste les marchés cibles configurés."""
     console.print("Marchés configurés :", TARGET_MARKETS)
+
+
+
+
+@app.command("cluster-semantic")
+def cluster_semantic(
+    threshold: float = typer.Option(
+        DEFAULT_THRESHOLD,
+        help="Distance cosinus maximale au sein d'un cluster. Plus bas = "
+        "clusters plus fins et plus nombreux.",
+    ),
+    linkage: str = typer.Option(
+        DEFAULT_LINKAGE,
+        help="Critère de liaison. 'complete' évite l'effet de chaînage qui "
+        "produit un cluster géant absorbant tout le corpus.",
+    ),
+    model_name: str = typer.Option(DEFAULT_MODEL, help="Modèle d'embeddings"),
+    keep_noise: bool = typer.Option(
+        False,
+        "--keep-noise",
+        help="Conserve les termes de destination (madagascar, nosy be) lors "
+        "de l'encodage. Déconseillé : ils saturent le signal.",
+    ),
+    notes: str = typer.Option("", help="Commentaire libre attaché au run"),
+    dry_run: bool = typer.Option(
+        False, "--dry-run", help="Calcule et affiche, puis annule sans écrire"
+    ),
+):
+    """Étape 5 : regroupe les mots-clés par proximité de sens.
+
+    Remplace le regroupement par seed. Les mots-clés dont le cluster a
+    été fixé à la main (cluster_source = manual) ne sont jamais
+    réaffectés."""
+    from sqlmodel import Session, create_engine
+
+    engine = create_engine(f"sqlite:///{settings.database_path}")
+
+    with Session(engine) as session:
+        result = run_clustering(
+            session,
+            model_name=model_name,
+            threshold=threshold,
+            linkage=linkage,
+            noise_pattern="" if keep_noise else DEFAULT_NOISE_PATTERN,
+            notes=notes,
+        )
+
+        console.print(f"\n[bold cyan]Clustering sémantique[/bold cyan] (run {result.run_id})")
+        console.print(f"  mots-clés regroupés   : {result.keyword_count}")
+        console.print(f"  clusters              : {result.cluster_count}")
+        console.print(f"  isolés (1 mot-clé)    : {result.singleton_count}")
+        console.print(f"  plus gros cluster     : {result.largest_size}")
+        if result.locked_count:
+            console.print(
+                f"  [yellow]verrouillés (manuel) : {result.locked_count} "
+                f"— non réaffectés[/yellow]"
+            )
+
+        if result.largest_size > 80:
+            console.print(
+                "\n[yellow]⚠ Un cluster dépasse 80 mots-clés : c'est le signe "
+                "d'un fourre-tout. Baisse le seuil.[/yellow]"
+            )
+
+        if dry_run:
+            session.rollback()
+            console.print("\n[yellow]dry-run : rien n'a été écrit[/yellow]")
+        else:
+            session.commit()
+            console.print("\n[bold green]✓ Clusters enregistrés[/bold green]")
 
 
 if __name__ == "__main__":
