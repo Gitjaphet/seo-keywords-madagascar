@@ -708,5 +708,8 @@ def classify_db_cmd(
             console.print("\n[bold green]✓ Appliqué[/bold green]")
 
 
+import seo_keywords.export.cli_pdf  # noqa: E402, F401
+
+
 if __name__ == "__main__":
     app()
